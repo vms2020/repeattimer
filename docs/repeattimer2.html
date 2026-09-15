@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repeat Timer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        h1 { margin-bottom: 1.5rem; font-size: 1.5rem; }
+        .input-group {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        label { font-weight: 500; }
+        input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1rem;
+        }
+        #timer-display {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1.5rem 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .status {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .start-btn { background-color: #28a745; color: white; }
+        .start-btn:hover { background-color: #218838; }
+        .stop-btn { background-color: #dc3545; color: white; }
+        .stop-btn:hover { background-color: #c82333; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Repeat Timer</h1>
+
+    <div class="input-group">
+        <label for="minutes">Interval (Minutes):</label>
+        <input type="number" id="minutes" value="15" min="1">
+    </div>
+
+    <div class="input-group">
+        <label for="repeats">Total Repeats:</label>
+        <input type="number" id="repeats" value="4" min="1">
+    </div>
+
+    <div class="status" id="statusText">Ready to start</div>
+    <div id="timer-display">00:00</div>
+
+    <button id="actionBtn" class="start-btn">Start Timer</button>
+</div>
+
+<script>
+    let timerInterval;
+    let timeLeft;
+    let currentRepeat = 0;
+    let isRunning = false;
+
+    const minutesInput = document.getElementById('minutes');
+    const repeatsInput = document.getElementById('repeats');
+    const timerDisplay = document.getElementById('timer-display');
+    const statusText = document.getElementById('statusText');
+    const actionBtn = document.getElementById('actionBtn');
+
+    // Notification setup
+    const notify = () => {
+        if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Repeat Timer", { body: `Timer finished! Repeat ${currentRepeat}/${repeatsInput.value}` });
+        }
+        // Play sound
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    };
+
+    if ("Notification" in window) {
+        Notification.requestPermission();
+    }
+
+    function updateDisplay(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        timerDisplay.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function startTimer() {
+        const totalMinutes = parseInt(minutesInput.value);
+        const totalRepeats = parseInt(repeatsInput.value);
+
+        currentRepeat = 1;
+        timeLeft = totalMinutes * 60;
+
+        isRunning = true;
+        actionBtn.textContent = 'Stop Timer';
+        actionBtn.className = 'stop-btn';
+
+        runCycle();
+    }
+
+    function runCycle() {
+        statusText.textContent = `Repeat ${currentRepeat} of ${repeatsInput.value}`;
+        updateDisplay(timeLeft);
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateDisplay(timeLeft);
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                notify();
+
+                if (currentRepeat < repeatsInput.value) {
+                    currentRepeat++;
+                    timeLeft = parseInt(minutesInput.value) * 60;
+                    runCycle();
+                } else {
+                    stopTimer(true);
+                }
+            }
+        }, 1000);
+    }
+
+    function stopTimer(finished = false) {
+        clearInterval(timerInterval);
+        isRunning = false;
+        actionBtn.textContent = 'Start Timer';
+        actionBtn.className = 'start-btn';
+        statusText.textContent = finished ? "All repeats completed!" : "Timer stopped";
+        if (!finished) updateDisplay(0);
+    }
+
+    actionBtn.addEventListener('click', () => {
+        if (isRunning) {
+            stopTimer();
+        } else {
+            startTimer();
+        }
+    });
+</script>
+</body>
+</html>

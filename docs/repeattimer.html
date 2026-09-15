@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <title>Repeat Timer</title>
+
+    <style>
+        :root {
+          --background: #101418;
+          --card: #1c232b;
+          --text: #ffffff;
+          --muted: #aeb8c2;
+          --primary: #3f8cff;
+          --danger: #e94b5f;
+          --border: #35404c;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          min-height: 100vh;
+          padding: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: var(--background);
+          color: var(--text);
+          font-family: Arial, sans-serif;
+        }
+
+        .app {
+          width: 100%;
+          max-width: 460px;
+          padding: 24px;
+          border-radius: 20px;
+          background: var(--card);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+          text-align: center;
+        }
+
+        h1 {
+          margin: 0 0 8px;
+          font-size: 30px;
+        }
+
+        .subtitle {
+          margin: 0 0 24px;
+          color: var(--muted);
+        }
+
+        .settings {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          margin-bottom: 24px;
+          text-align: left;
+        }
+
+        label {
+          color: var(--muted);
+          font-size: 14px;
+        }
+
+        input {
+          width: 100%;
+          margin-top: 7px;
+          padding: 13px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          outline: none;
+          background: #11171d;
+          color: var(--text);
+          font-size: 18px;
+        }
+
+        input:focus {
+          border-color: var(--primary);
+        }
+
+        .timer {
+          margin: 10px 0;
+          font-size: clamp(58px, 18vw, 100px);
+          font-weight: bold;
+          letter-spacing: 2px;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .repeat-status {
+          min-height: 24px;
+          margin-bottom: 22px;
+          color: var(--muted);
+        }
+
+        .buttons {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        button {
+          min-height: 50px;
+          padding: 12px 16px;
+          border: 0;
+          border-radius: 10px;
+          color: white;
+          background: var(--primary);
+          font-size: 17px;
+          font-weight: bold;
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
+        button:active {
+          transform: scale(0.98);
+        }
+
+        button.secondary {
+          background: #465362;
+        }
+
+        button.danger {
+          background: var(--danger);
+        }
+
+        .message {
+          min-height: 24px;
+          margin-top: 18px;
+          color: var(--muted);
+          font-size: 14px;
+        }
+
+        .install-note {
+          margin-top: 20px;
+          color: #84919e;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        @media (max-width: 360px) {
+          .settings {
+            grid-template-columns: 1fr;
+          }
+        }
+    </style>
+</head>
+
+<body>
+<main class="app">
+    <h1>Repeat Timer</h1>
+    <p class="subtitle">Run an alarm after every interval</p>
+
+    <section class="settings">
+        <label>
+            Minutes per timer
+            <input id="minutesInput" type="number" min="1" max="1440" value="15" />
+        </label>
+
+        <label>
+            Number of repeats
+            <input id="repeatsInput" type="number" min="1" max="999" value="4" />
+        </label>
+    </section>
+
+    <div id="timerDisplay" class="timer">15:00</div>
+
+    <div id="repeatStatus" class="repeat-status">
+        Ready: 4 repeats
+    </div>
+
+    <div class="buttons">
+        <button id="startButton">Start</button>
+        <button id="pauseButton" class="secondary">Pause</button>
+        <button id="resetButton" class="danger">Reset</button>
+        <button id="testButton" class="secondary">Test Alarm</button>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <p class="install-note">
+        Keep this page open while the timer is running. For reliable alarms,
+        keep the screen awake and avoid closing the browser.
+    </p>
+</main>
+
+<script>
+    const minutesInput = document.getElementById("minutesInput");
+    const repeatsInput = document.getElementById("repeatsInput");
+    const timerDisplay = document.getElementById("timerDisplay");
+    const repeatStatus = document.getElementById("repeatStatus");
+    const message = document.getElementById("message");
+
+    const startButton = document.getElementById("startButton");
+    const pauseButton = document.getElementById("pauseButton");
+    const resetButton = document.getElementById("resetButton");
+    const testButton = document.getElementById("testButton");
+
+    let timerId = null;
+    let audioContext = null;
+
+    let totalSeconds = 15 * 60;
+    let secondsRemaining = totalSeconds;
+    let repeatsCompleted = 0;
+    let isRunning = false;
+
+    function getMinutes() {
+      const value = Number.parseInt(minutesInput.value, 10);
+      return Number.isFinite(value) && value >= 1 ? value : 15;
+    }
+
+    function getRepeats() {
+      const value = Number.parseInt(repeatsInput.value, 10);
+      return Number.isFinite(value) && value >= 1 ? value : 4;
+    }
+
+    function updateSettings() {
+      if (isRunning) return;
+
+      const minutes = getMinutes();
+      totalSeconds = minutes * 60;
+      secondsRemaining = totalSeconds;
+      repeatsCompleted = 0;
+
+      updateDisplay();
+      message.textContent = "";
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+
+      return (
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(remainingSeconds).padStart(2, "0")
+      );
+    }
+
+    function updateDisplay() {
+      timerDisplay.textContent = formatTime(secondsRemaining);
+
+      const totalRepeats = getRepeats();
+
+      if (repeatsCompleted >= totalRepeats) {
+        repeatStatus.textContent = `Completed: ${totalRepeats} of ${totalRepeats}`;
+      } else if (isRunning) {
+        repeatStatus.textContent =
+          `Repeat ${repeatsCompleted + 1} of ${totalRepeats}`;
+      } else if (repeatsCompleted > 0) {
+        repeatStatus.textContent =
+          `Completed: ${repeatsCompleted} of ${totalRepeats}`;
+      } else {
+        repeatStatus.textContent = `Ready: ${totalRepeats} repeats`;
+      }
+    }
+
+    function prepareAudio() {
+      if (!audioContext) {
+        const AudioContext =
+          window.AudioContext || window.webkitAudioContext;
+
+        if (AudioContext) {
+          audioContext = new AudioContext();
+        }
+      }
+
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+    }
+
+    function playAlarm() {
+      prepareAudio();
+
+      // Vibrate Android phones when supported.
+      if ("vibrate" in navigator) {
+        navigator.vibrate([500, 250, 500, 250, 800]);
+      }
+
+      // Play three audible beeps.
+      if (audioContext) {
+        const startTime = audioContext.currentTime;
+
+        [0, 0.45, 0.9].forEach((offset) => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+
+          oscillator.type = "sine";
+          oscillator.frequency.value = 880;
+
+          gain.gain.setValueAtTime(0.001, startTime + offset);
+          gain.gain.exponentialRampToValueAtTime(
+            0.45,
+            startTime + offset + 0.02
+          );
+          gain.gain.exponentialRampToValueAtTime(
+            0.001,
+            startTime + offset + 0.3
+          );
+
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+
+          oscillator.start(startTime + offset);
+          oscillator.stop(startTime + offset + 0.32);
+        });
+      }
+
+      // Browser notification, if permission has been granted.
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Repeat Timer", {
+          body: "Your timer interval has finished."
+        });
+      }
+
+      document.title = "⏰ Time is up!";
+      setTimeout(() => {
+        document.title = "Repeat Timer";
+      }, 3000);
+    }
+
+    async function requestNotificationPermission() {
+      if ("Notification" in window && Notification.permission === "default") {
+        try {
+          await Notification.requestPermission();
+        } catch (error) {
+          console.log("Notification permission was not granted.");
+        }
+      }
+    }
+
+    function tick() {
+      if (!isRunning) return;
+
+      secondsRemaining--;
+
+      if (secondsRemaining <= 0) {
+        playAlarm();
+        repeatsCompleted++;
+
+        const totalRepeats = getRepeats();
+
+        if (repeatsCompleted >= totalRepeats) {
+          stopTimer();
+          secondsRemaining = 0;
+          message.textContent = "All repeats completed.";
+        } else {
+          secondsRemaining = totalSeconds;
+          message.textContent = "Alarm! Starting the next repeat.";
+        }
+      }
+
+      updateDisplay();
+    }
+
+    async function startTimer() {
+      if (repeatsCompleted >= getRepeats()) {
+        resetTimer();
+      }
+
+      prepareAudio();
+      await requestNotificationPermission();
+
+      if (isRunning) return;
+
+      isRunning = true;
+      message.textContent = "Timer is running.";
+      updateDisplay();
+
+      timerId = setInterval(tick, 1000);
+    }
+
+    function stopTimer() {
+      isRunning = false;
+
+      if (timerId !== null) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+
+      updateDisplay();
+    }
+
+    function pauseTimer() {
+      if (!isRunning) return;
+
+      stopTimer();
+      message.textContent = "Timer paused.";
+    }
+
+    function resetTimer() {
+      stopTimer();
+
+      totalSeconds = getMinutes() * 60;
+      secondsRemaining = totalSeconds;
+      repeatsCompleted = 0;
+
+      message.textContent = "Timer reset.";
+      updateDisplay();
+    }
+
+    function testAlarm() {
+      prepareAudio();
+      playAlarm();
+      message.textContent = "Test alarm played.";
+    }
+
+    minutesInput.addEventListener("change", updateSettings);
+    repeatsInput.addEventListener("change", updateSettings);
+
+    startButton.addEventListener("click", startTimer);
+    pauseButton.addEventListener("click", pauseTimer);
+    resetButton.addEventListener("click", resetTimer);
+    testButton.addEventListener("click", testAlarm);
+
+    updateDisplay();
+</script>
+</body>
+</html>
