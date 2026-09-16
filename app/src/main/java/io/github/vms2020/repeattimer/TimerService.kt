@@ -1,6 +1,10 @@
 package io.github.vms2020.repeattimer
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -8,13 +12,18 @@ import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 class TimerService : Service() {
@@ -232,9 +241,23 @@ class TimerService : Service() {
     // ---------------- foreground + нотификация ----------------
 
     private fun startFg() {
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
-        ServiceCompat.startForeground(this, NOTIF_ID, buildNotification(), type)
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14+
+            ServiceCompat.startForeground(
+                this,
+                NOTIF_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIF_ID, notification)
+        }
+
+//        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+//            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+//        //ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+//
+//        ServiceCompat.startForeground(this, NOTIF_ID, buildNotification(), type)
     }
 
     private fun stopFg() {
@@ -280,13 +303,18 @@ class TimerService : Service() {
         if (s.isAlarmPlaying) {
             builder.addAction(
                 NotificationCompat.Action.Builder(
-                    0, "Стоп сигнал", actionPi(ACTION_STOP_ALARM, 1)
+                    0,
+                    //"Стоп сигнал",
+                    getString(R.string.stop_signal),
+                    actionPi(ACTION_STOP_ALARM, 1)
                 ).build()
             )
         }
         builder.addAction(
             NotificationCompat.Action.Builder(
-                0, "Стоп серия", actionPi(ACTION_STOP_ALL, 2)
+                0,
+                getString(R.string.stop_seria_lc),//"Стоп серия",
+                actionPi(ACTION_STOP_ALL, 2)
             ).build()
         )
 
@@ -301,19 +329,34 @@ class TimerService : Service() {
         )
     }
 
+//    private fun titleFor(s: TimerState): String {
+//        if (!s.isRunning) return "Таймер остановлен"
+//        val idx = (s.totalIntervals - s.remainingIntervals + 1).coerceAtLeast(1)
+//        return "Интервал $idx из ${s.totalIntervals}"
+//    }
+//
+//    private fun textFor(s: TimerState): String {
+//        if (!s.isRunning) return "Серия не запущена"
+//        if (s.isAlarmPlaying) {
+//            return "🔔 Сигнал! Осталось интервалов после: ${s.remainingIntervals - 1}"
+//        }
+//        val time = "%02d:%02d".format(s.secondsLeft / 60, s.secondsLeft % 60)
+//        return "До сигнала: $time · Осталось: ${s.remainingIntervals}"
+//    }
+
     private fun titleFor(s: TimerState): String {
-        if (!s.isRunning) return "Таймер остановлен"
+        if (!s.isRunning) return getString(R.string.timer_stopped)
         val idx = (s.totalIntervals - s.remainingIntervals + 1).coerceAtLeast(1)
-        return "Интервал $idx из ${s.totalIntervals}"
+        return getString(R.string.interval_of, idx, s.totalIntervals)
     }
 
     private fun textFor(s: TimerState): String {
-        if (!s.isRunning) return "Серия не запущена"
+        if (!s.isRunning) return getString(R.string.series_not_started)
         if (s.isAlarmPlaying) {
-            return "🔔 Сигнал! Осталось интервалов после: ${s.remainingIntervals - 1}"
+            return getString(R.string.alarm_playing, s.remainingIntervals - 1)
         }
         val time = "%02d:%02d".format(s.secondsLeft / 60, s.secondsLeft % 60)
-        return "До сигнала: $time · Осталось: ${s.remainingIntervals}"
+        return getString(R.string.until_signal_details, time, s.remainingIntervals)
     }
 
     private fun updateNotification() {

@@ -1,3 +1,28 @@
 <resources>
     <string name="app_name">Repeat Timer</string>
+    <string name="timer_title">Repeat Timer</string>
+    <string name="next_signal">Until next signal</string>
+    <string name="interval_of">Interval %1$d of %2$d</string>
+    <string name="intervals_left">Intervals left: %1$d</string>
+    <string name="start_series">START SERIES</string>
+    <string name="counting">COUNTING…</string>
+    <string name="stop_alarm">STOP ALARM</string>
+    <string name="stop_signal">Stop signal</string>
+
+    <string name="stop_series">STOP WHOLE SERIES</string>
+    <string name="stop_seria_lc">Stop seria</string>
+
+    <string name="settings">Settings</string>
+    <string name="interval_minutes">Interval, minutes</string>
+    <string name="interval_count">Number of intervals</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="pick_sound">Choose timer sound</string>
+    <string name="default_sound">Default (alarm)</string>
+    <string name="choose_sound">Choose sound</string>
+
+    <string name="timer_stopped">Timer stopped</string>
+    <string name="series_not_started">Series not started</string>
+    <string name="alarm_playing">🔔 Alarm! Intervals left after: %1$d</string>
+    <string name="until_signal_details">Until signal: %1$s · Left: %2$d</string>
 </resources>

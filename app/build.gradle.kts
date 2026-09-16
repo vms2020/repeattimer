@@ -8,7 +8,9 @@ android {
     compileSdk {
         version = release(37)
     }
-
+    androidResources {
+        generateLocaleConfig = true
+    }
     defaultConfig {
         applicationId = "io.github.vms2020.repeattimer"
         minSdk = 24

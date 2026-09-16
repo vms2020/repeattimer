@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Мультитаймер</string>
+    <string name="timer_title">Мультитаймер</string>
+    <string name="next_signal">До следующего сигнала</string>
+    <string name="interval_of">Интервал %1$d из %2$d</string>
+    <string name="intervals_left">Осталось интервалов: %1$d</string>
+    <string name="start_series">СТАРТ СЕРИИ</string>
+    <string name="counting">ИДЁТ ОТСЧЁТ…</string>
+    <string name="stop_alarm">ОСТАНОВИТЬ СИГНАЛ</string>
+    <string name="stop_signal">Стоп сигнал</string>
+    <string name="stop_series">ОСТАНОВИТЬ ВСЮ СЕРИЮ</string>
+    <string name="stop_seria_lc">Стоп серия</string>
+
+    <string name="settings">Настройки</string>
+    <string name="interval_minutes">Интервал, минут</string>
+    <string name="interval_count">Количество интервалов</string>
+    <string name="save">Сохранить</string>
+    <string name="cancel">Отмена</string>
+    <string name="pick_sound">Выберите звук для таймера</string>
+    <string name="default_sound">По умолчанию (будильник)</string>
+    <string name="choose_sound">Выбрать звук</string>
+
+    <string name="timer_stopped">Таймер остановлен</string>
+    <string name="series_not_started">Серия не запущена</string>
+    <string name="alarm_playing">🔔 Сигнал! Осталось интервалов после: %1$d</string>
+    <string name="until_signal_details">До сигнала: %1$s · Осталось: %2$d</string>
+</resources>

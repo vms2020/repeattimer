@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -82,14 +83,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        loadSavedSettingsIntoState()
+
         setContent {
             RepeatTimerTheme {
-//                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//                    Greeting(
-//                        name = "Android",
-//                        modifier = Modifier.padding(innerPadding)
-//                    )
-//                }
                 Surface(
                     Modifier
                         .fillMaxSize(),
@@ -99,6 +96,27 @@ class MainActivity : ComponentActivity() {
                     Screen()
                 }
             }
+        }
+    }
+
+    private fun loadSavedSettingsIntoState() {
+        val current = TimerStateHolder.state.value
+        // Если серия уже идёт — состояние уже актуально, не перезаписываем
+        if (current.isRunning || current.isAlarmPlaying) return
+
+        val prefs = getSharedPreferences("timer_prefs", MODE_PRIVATE)
+        val interval = prefs.getInt("interval", 15)
+        val count = prefs.getInt("count", 4)
+
+        TimerStateHolder.update {
+            it.copy(
+                intervalMinutes = interval,
+                totalIntervals = count,
+                remainingIntervals = count,
+                secondsLeft = interval * 60,
+                isRunning = false,
+                isAlarmPlaying = false
+            )
         }
     }
 }
@@ -139,7 +157,11 @@ fun Screen() {
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Многократный таймер", fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(R.string.timer_title),
+            fontSize = 24.sp,
+            fontWeight = FontWeight.SemiBold
+        )
 
         Spacer(Modifier.height(32.dp))
 
@@ -149,18 +171,20 @@ fun Screen() {
             fontWeight = FontWeight.Bold,
             style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
         )
-        Text("До следующего сигнала", fontSize = 14.sp)
+        Text(stringResource(R.string.next_signal), fontSize = 14.sp)
 
         Spacer(Modifier.height(16.dp))
 
         val currentIdx = (state.totalIntervals - state.remainingIntervals + 1)
             .coerceIn(1, state.totalIntervals)
         Text(
-            "Интервал $currentIdx из ${state.totalIntervals}",
+            stringResource(R.string.interval_of, currentIdx, state.totalIntervals),
+            //"Интервал $currentIdx из ${state.totalIntervals}",
             fontSize = 18.sp
         )
         Text(
-            "Осталось интервалов: ${state.remainingIntervals}",
+            stringResource(R.string.intervals_left, state.remainingIntervals),
+            //"Осталось интервалов: ${state.remainingIntervals}",
             fontSize = 16.sp
         )
 
@@ -176,7 +200,13 @@ fun Screen() {
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("ОСТАНОВИТЬ СИГНАЛ", fontSize = 20.sp) }
+                ) {
+                    Text(
+                        stringResource(R.string.stop_alarm),
+                        //"ОСТАНОВИТЬ СИГНАЛ",
+                        fontSize = 20.sp
+                    )
+                }
             }
 
             state.isRunning -> {
@@ -186,7 +216,13 @@ fun Screen() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(64.dp)
-                ) { Text("ИДЁТ ОТСЧЁТ…", fontSize = 20.sp) }
+                ) {
+                    Text(
+                        stringResource(R.string.counting),
+                        //"ИДЁТ ОТСЧЁТ…",
+                        fontSize = 20.sp
+                    )
+                }
             }
 
             else -> {
@@ -195,7 +231,7 @@ fun Screen() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(64.dp)
-                ) { Text("СТАРТ СЕРИИ", fontSize = 20.sp) }
+                ) { Text(stringResource(R.string.start_series), fontSize = 20.sp) }
             }
         }
 
@@ -207,7 +243,13 @@ fun Screen() {
                 .fillMaxWidth()
                 .height(56.dp),
             enabled = state.isRunning || state.isAlarmPlaying
-        ) { Text("ОСТАНОВИТЬ ВСЮ СЕРИЮ", fontSize = 16.sp) }
+        ) {
+            Text(
+                stringResource(R.string.stop_series),
+                //"ОСТАНОВИТЬ ВСЮ СЕРИЮ",
+                fontSize = 16.sp
+            )
+        }
 
         Spacer(Modifier.weight(1f))
 
@@ -219,14 +261,20 @@ fun Screen() {
             TextButton(
                 onClick = { showSettings = true },
                 enabled = !state.isRunning && !state.isAlarmPlaying
-            ) { Text("Настройки") }
+            ) {
+                Text(
+                    stringResource(R.string.settings)
+                    //    "Настройки"
+                )
+            }
             Row(
                 verticalAlignment = Alignment.Bottom
             ) {
                 Text(
-                    soundName ?: "Звук по умолчанию",
+                    soundName ?: stringResource(R.string.default_sound),  //"Звук по умолчанию",
                     style = MaterialTheme.typography.labelSmall,
                 )
+                val chooseSoundTitle = stringResource(R.string.choose_sound)
                 FilledIconButton(
                     {
                         val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
@@ -236,7 +284,8 @@ fun Screen() {
                             )
                             putExtra(
                                 RingtoneManager.EXTRA_RINGTONE_TITLE,
-                                "Выберите звук для таймера"
+                                chooseSoundTitle,
+                                //"Выберите звук для таймера"
                             )
                             loadSelectedSoundUri(context)?.let {
                                 putExtra(
@@ -249,7 +298,11 @@ fun Screen() {
                     },
                     enabled = !state.isRunning && !state.isAlarmPlaying
                 ) {
-                    Icon(Icons.Default.Audiotrack, "RingTone")
+                    Icon(
+                        Icons.Default.Audiotrack,
+                        stringResource(R.string.choose_sound)
+                        //    "RingTone"
+                    )
                 }
             }
         }
@@ -316,13 +369,19 @@ fun SettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Настройки") },
+        title = { Text(
+            stringResource(R.string.settings)
+        //    "Настройки"
+        ) },
         text = {
             Column {
                 OutlinedTextField(
                     value = intervalText,
                     onValueChange = { intervalText = it.filter(Char::isDigit).take(4) },
-                    label = { Text("Интервал, минут") },
+                    label = { Text(
+                        stringResource(R.string.interval_minutes)
+                    //    "Интервал, минут"
+                    ) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -330,7 +389,10 @@ fun SettingsDialog(
                 OutlinedTextField(
                     value = countText,
                     onValueChange = { countText = it.filter(Char::isDigit).take(2) },
-                    label = { Text("Количество интервалов") },
+                    label = { Text(
+                        stringResource(R.string.interval_count)
+                        //"Количество интервалов"
+                    ) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -341,10 +403,13 @@ fun SettingsDialog(
                 intervalText.toIntOrNull()?.let { onIntervalChange(it.coerceIn(1, 999)) }
                 countText.toIntOrNull()?.let { onCountChange(it.coerceIn(1, 99)) }
                 onDismiss()
-            }) { Text("Сохранить") }
+            }) { Text(
+                stringResource(R.string.save)
+            //    "Сохранить"
+            ) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
