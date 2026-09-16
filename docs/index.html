@@ -4,7 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Timers</title>
+
+    <!-- Apply saved theme immediately to avoid flash of wrong theme -->
+    <script>
+        (function () {
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            window.applyTheme = function (mode) {
+                var dark = mode === 'dark' || (mode === 'system' && mq.matches);
+                document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+            };
+            applyTheme(localStorage.getItem('theme') || 'system');
+            var onChange = function () {
+                if ((localStorage.getItem('theme') || 'system') === 'system') applyTheme('system');
+            };
+            if (mq.addEventListener) mq.addEventListener('change', onChange);
+            else mq.addListener(onChange);
+        })();
+    </script>
+
     <style>
+        :root {
+            color-scheme: light;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --accent: #007bff;
+            --accent-hover: #0056b3;
+            --toggle-border: #d0d4d9;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        html[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #15171a;
+            --card-bg: #23262b;
+            --text: #e8eaed;
+            --accent: #3b82f6;
+            --accent-hover: #60a5fa;
+            --toggle-border: #3a3e45;
+            --shadow: 0 4px 12px rgba(0,0,0,0.45);
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             display: flex;
@@ -13,20 +52,23 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #f0f2f5;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
         .menu {
-            background: white;
+            background: var(--card-bg);
             padding: 2rem;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow);
             text-align: center;
+            transition: background-color 0.2s ease;
         }
-        h1 { color: #333; margin-bottom: 1.5rem; }
+        h1 { margin-bottom: 1.5rem; }
         .link-card {
             display: block;
             text-decoration: none;
-            background: #007bff;
+            background: var(--accent);
             color: white;
             padding: 12px 24px;
             margin: 10px 0;
@@ -34,12 +76,57 @@
             font-weight: bold;
             transition: background 0.2s;
         }
-        .link-card:hover {
-            background: #0056b3;
+        .link-card:hover { background: var(--accent-hover); }
+
+        /* Theme toggle button (top-left corner) */
+        .theme-toggle {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            border: 1px solid var(--toggle-border);
+            background: var(--card-bg);
+            color: var(--text);
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: background-color 0.2s ease, transform 0.15s ease;
+            z-index: 10;
         }
+        .theme-toggle:hover { transform: scale(1.08); }
+        .theme-toggle:active { transform: scale(0.95); }
+        .theme-toggle svg { width: 20px; height: 20px; display: none; }
+        .theme-toggle svg.active { display: block; }
     </style>
 </head>
 <body>
+
+<button class="theme-toggle" id="theme-toggle" aria-label="Theme: system" title="Theme: system">
+    <!-- System (monitor) -->
+    <svg class="theme-icon" data-mode="system" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+    </svg>
+    <!-- Light (sun) -->
+    <svg class="theme-icon" data-mode="light" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <!-- Dark (moon) -->
+    <svg class="theme-icon" data-mode="dark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+</button>
 
 <div class="menu">
     <h1>Select a Timer</h1>
@@ -49,6 +136,31 @@
     <a href="repeattimer2.html" class="link-card">Open Repeat Timer 2</a>
     <a href="https://github.com/vms2020/repeattimer/releases/tag/v0.0.2-alpha" class="link-card">Android APK</a>
 </div>
+
+<script>
+    (function () {
+        var ORDER = ['system', 'light', 'dark'];
+        var btn = document.getElementById('theme-toggle');
+        var mode = localStorage.getItem('theme') || 'system';
+
+        function refreshButton() {
+            document.querySelectorAll('.theme-icon').forEach(function (icon) {
+                icon.classList.toggle('active', icon.dataset.mode === mode);
+            });
+            btn.title = 'Theme: ' + mode;
+            btn.setAttribute('aria-label', 'Theme: ' + mode);
+        }
+
+        btn.addEventListener('click', function () {
+            mode = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+            localStorage.setItem('theme', mode);
+            applyTheme(mode);
+            refreshButton();
+        });
+
+        refreshButton();
+    })();
+</script>
 
 </body>
 </html>
