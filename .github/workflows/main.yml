@@ -42,7 +42,7 @@ jobs:
       - name: Sign APK
         run: |
           # ANDROID_SDK_PATH=$ANDROID_HOME/build-tools/35.0.0/apksigner
-          APKSIGNER_SDK_PATH=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
+          ANDROID_SDK_PATH=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
           $ANDROID_SDK_PATH sign \
             --ks $RUNNER_TEMP/keystores/keystore.jks \
             --ks-key-alias ${{ secrets.KEY_ALIAS }} \
