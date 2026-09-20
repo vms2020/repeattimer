@@ -169,7 +169,7 @@ class TimerService : Service() {
 
         TimerStateHolder.update { it.copy(secondsLeft = 0, isAlarmPlaying = true) }
         updateNotification()
-        playAlarm()
+        playAlarm2()
     }
 
     private fun runTimer() {
@@ -248,8 +248,6 @@ class TimerService : Service() {
         stopFg()
         stopSelf()
     }
-
-    // ---------------- звук ----------------
 
     private fun playAlarm() {
         try {

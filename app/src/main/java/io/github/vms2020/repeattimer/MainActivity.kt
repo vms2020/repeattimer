@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -144,6 +145,14 @@ fun Screen() {
     var soundUri by rememberSaveable { mutableStateOf(loadSelectedSoundUri(context)) }
     val soundName = remember(soundUri) { loadSelectedSoundName(context) }
 
+    val intervalSec = state.intervalMinutes * 60
+    val progress = if (intervalSec > 0) {
+        1f - (state.secondsLeft.toFloat() / intervalSec.toFloat())
+    } else 0f
+
+    val currentIdx = (state.totalIntervals - state.remainingIntervals + 1)
+        .coerceIn(1, state.totalIntervals)
+
     val ringtonePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -162,6 +171,12 @@ fun Screen() {
             }
         }
     }
+    val progressColor = when {
+        state.isAlarmPlaying -> colorScheme.error
+        progress > 0.9f -> colorScheme.error.copy(alpha = 0.7f)
+        progress > 0.75f -> colorScheme.tertiary
+        else -> colorScheme.primary
+    }
 
     Column(
         modifier = Modifier
@@ -177,32 +192,54 @@ fun Screen() {
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
 
-        Text(
-            text = formatTime(state.secondsLeft),
-            fontSize = 72.sp,
-            fontWeight = FontWeight.Bold,
-            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
-        )
-        Text(stringResource(R.string.next_signal), fontSize = 14.sp)
+        CircularTimer(
+            progress = progress,
+            progressColor = progressColor,
+            size = 280.dp,
+            strokeWidth = 16.dp,
+//            progressColor = if (state.isAlarmPlaying)
+//                MaterialTheme.colorScheme.error
+//            else
+//                MaterialTheme.colorScheme.primary
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = formatTime(state.secondsLeft),
+                    fontSize = 64.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+                )
+                Text(
+                    stringResource(R.string.next_signal),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    stringResource(R.string.interval_of, currentIdx, state.totalIntervals),
+                    //"Интервал $currentIdx из ${state.totalIntervals}",
+                    fontSize = 18.sp
+                )
+                Text(
+                    stringResource(R.string.intervals_left, state.remainingIntervals),
+                    //"Осталось интервалов: ${state.remainingIntervals}",
+                    fontSize = 16.sp
+                )
+            }
+        }
+//        Text(
+//            text = formatTime(state.secondsLeft),
+//            fontSize = 72.sp,
+//            fontWeight = FontWeight.Bold,
+//            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
+//        )
+//        Text(stringResource(R.string.next_signal), fontSize = 14.sp)
 
-        Spacer(Modifier.height(16.dp))
+//        Spacer(Modifier.height(16.dp))
 
-        val currentIdx = (state.totalIntervals - state.remainingIntervals + 1)
-            .coerceIn(1, state.totalIntervals)
-        Text(
-            stringResource(R.string.interval_of, currentIdx, state.totalIntervals),
-            //"Интервал $currentIdx из ${state.totalIntervals}",
-            fontSize = 18.sp
-        )
-        Text(
-            stringResource(R.string.intervals_left, state.remainingIntervals),
-            //"Осталось интервалов: ${state.remainingIntervals}",
-            fontSize = 16.sp
-        )
 
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(24.dp))
 
         when {
             state.isAlarmPlaying -> {
@@ -383,19 +420,23 @@ fun SettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(
-            stringResource(R.string.settings)
-        //    "Настройки"
-        ) },
+        title = {
+            Text(
+                stringResource(R.string.settings)
+                //    "Настройки"
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(
                     value = intervalText,
                     onValueChange = { intervalText = it.filter(Char::isDigit).take(4) },
-                    label = { Text(
-                        stringResource(R.string.interval_minutes)
-                    //    "Интервал, минут"
-                    ) },
+                    label = {
+                        Text(
+                            stringResource(R.string.interval_minutes)
+                            //    "Интервал, минут"
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -403,10 +444,12 @@ fun SettingsDialog(
                 OutlinedTextField(
                     value = countText,
                     onValueChange = { countText = it.filter(Char::isDigit).take(2) },
-                    label = { Text(
-                        stringResource(R.string.interval_count)
-                        //"Количество интервалов"
-                    ) },
+                    label = {
+                        Text(
+                            stringResource(R.string.interval_count)
+                            //"Количество интервалов"
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -417,10 +460,12 @@ fun SettingsDialog(
                 intervalText.toIntOrNull()?.let { onIntervalChange(it.coerceIn(1, 999)) }
                 countText.toIntOrNull()?.let { onCountChange(it.coerceIn(1, 99)) }
                 onDismiss()
-            }) { Text(
-                stringResource(R.string.save)
-            //    "Сохранить"
-            ) }
+            }) {
+                Text(
+                    stringResource(R.string.save)
+                    //    "Сохранить"
+                )
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
