@@ -1,5 +1,6 @@
 package io.github.vms2020.repeattimer
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,6 +15,7 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
@@ -32,8 +34,10 @@ class TimerService : Service() {
         const val ACTION_START = "com.example.countdowntimer.START"
         const val ACTION_STOP_ALARM = "com.example.countdowntimer.STOP_ALARM"
         const val ACTION_STOP_ALL = "com.example.countdowntimer.STOP_ALL"
+        const val ACTION_TIMER_FIRED = "com.example.countdowntimer.TIMER_FIRED"
         const val CHANNEL_ID = "timer_channel"
         const val NOTIF_ID = 1001
+        const val ALARM_REQUEST_CODE = 2001
 
         fun send(context: Context, action: String) {
             val i = Intent(context, TimerService::class.java).setAction(action)
@@ -70,6 +74,11 @@ class TimerService : Service() {
         when (intent?.action) {
             ACTION_START -> startSeries()
 
+            ACTION_TIMER_FIRED -> {
+                // Сервис разбужен будильником — начинаем играть сигнал
+                onTimerFired()
+            }
+
             ACTION_STOP_ALARM -> {
                 if (s.isAlarmPlaying || s.isRunning) stopAlarm() else stopSelf()
             }
@@ -83,7 +92,6 @@ class TimerService : Service() {
         return START_NOT_STICKY
     }
 
-    // ---------------- логика серии ----------------
 
     private fun startSeries() {
         val interval = prefs.getInt("interval", 15)
@@ -101,29 +109,93 @@ class TimerService : Service() {
             )
         }
         startFg()
+        scheduleAlarm()
         runTimer()
+    }
+
+    private fun scheduleAlarm() {
+        val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intervalMs = TimerStateHolder.state.value.intervalMinutes * 60_000L
+        val triggerAt =
+            SystemClock.elapsedRealtime() + intervalMs   // elapsedRealtime не сдвигается переводом часов
+
+        val intent = Intent(this, AlarmReceiver::class.java).apply {
+            action = ACTION_TIMER_FIRED
+        }
+        val pi = PendingIntent.getBroadcast(
+            this,
+            ALARM_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 12+
+            if (!am.canScheduleExactAlarms()) {
+                // Разрешение отозвано. Fallback — неточный будильник (сработает примерно).
+                am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                return
+            }
+        }
+
+        // ELAPSED_REALTIME_WAKEUP будит устройство и использует монотонные часы — не боится перевода времени.
+        am.setExactAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            triggerAt,
+            pi
+        )
+    }
+
+    private fun cancelAlarm() {
+        val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, AlarmReceiver::class.java).apply {
+            action = ACTION_TIMER_FIRED
+        }
+        val pi = PendingIntent.getBroadcast(
+            this,
+            ALARM_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        am.cancel(pi)
+    }
+
+    private fun onTimerFired() {
+        val s = TimerStateHolder.state.value
+        if (!s.isRunning || s.isAlarmPlaying) return  // игнорируем лишние срабатывания
+
+        timerJob?.cancel()
+        timerJob = null
+
+        TimerStateHolder.update { it.copy(secondsLeft = 0, isAlarmPlaying = true) }
+        updateNotification()
+        playAlarm()
     }
 
     private fun runTimer() {
         timerJob?.cancel()
         timerJob = scope.launch {
-            while (isActive) {
-                delay(1000.milliseconds)
-                val s = TimerStateHolder.state.value
-                if (!s.isRunning) return@launch
+            val intervalMs = TimerStateHolder.state.value.intervalMinutes * 60_000L
+            val deadline = SystemClock.elapsedRealtime() + intervalMs
 
-                if (s.secondsLeft > 1) {
-                    TimerStateHolder.update { it.copy(secondsLeft = it.secondsLeft - 1) }
+            while (isActive) {
+                val remainingMs = deadline - SystemClock.elapsedRealtime()
+                val remainingSec = ((remainingMs + 999) / 1000L).toInt().coerceAtLeast(0)
+
+                if (remainingSec != TimerStateHolder.state.value.secondsLeft) {
+                    TimerStateHolder.update { it.copy(secondsLeft = remainingSec) }
                     updateNotification()
-                } else {
-                    // Время вышло — играем сигнал и ждём пользователя
-                    TimerStateHolder.update {
-                        it.copy(secondsLeft = 0, isAlarmPlaying = true)
+                }
+
+                if (remainingSec <= 0) {
+                    // Если будильник уже сработал раньше — просто выходим
+                    if (!TimerStateHolder.state.value.isAlarmPlaying) {
+                        onTimerFired()
                     }
-                    updateNotification()
-                    playAlarm2()
                     return@launch
                 }
+
+                delay(500.milliseconds)
             }
         }
     }
@@ -147,6 +219,7 @@ class TimerService : Service() {
                 )
             }
             updateNotification()
+            scheduleAlarm()
             runTimer()
         } else {
             // Последний сигнал — завершаем серию
@@ -158,6 +231,7 @@ class TimerService : Service() {
         timerJob?.cancel()
         timerJob = null
         releasePlayer()
+        cancelAlarm()
 
         val interval = prefs.getInt("interval", 15)
         val count = prefs.getInt("count", 4)

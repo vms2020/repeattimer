@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.vms2020.repeattimer"
         minSdk = 24
         targetSdk = 37
-        versionCode = 6
-        versionName = "v0.0.6-alpha"
+        versionCode = 7
+        versionName = "v0.0.7-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
