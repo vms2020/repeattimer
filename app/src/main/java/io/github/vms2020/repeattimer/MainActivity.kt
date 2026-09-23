@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -74,6 +75,9 @@ const val KEY_SOUND_URI = "selected_sound_uri"
 const val KEY_SOUND_NAME = "selected_sound_name"
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     private fun ensureExactAlarmPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -84,19 +88,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val permissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        result.forEach { (perm, granted) ->
+            Log.d(TAG, "$perm granted=$granted")
+        }
+    }
+
+    private fun requestAllPermissions() {
+        val perms = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+                add(Manifest.permission.READ_MEDIA_AUDIO)
+            } else {
+                add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }.filter {
+            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (perms.isNotEmpty()) {
+            permissionsLauncher.launch(perms.toTypedArray())
+        }
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        requestAllPermissions()
+
         ensureExactAlarmPermission()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
-            }
-        }
+
+
+
 
         loadSavedSettingsIntoState()
 
@@ -278,7 +306,9 @@ fun Screen() {
 
             else -> {
                 Button(
-                    onClick = { TimerService.send(context, TimerService.ACTION_START) },
+                    onClick = {
+                        TimerService.send(context, TimerService.ACTION_START)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(64.dp)

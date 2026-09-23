@@ -16,6 +16,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,8 @@ import kotlin.time.Duration.Companion.milliseconds
 class TimerService : Service() {
 
     companion object {
+
+        private const val TAG = "TimerService"
         const val ACTION_START = "com.example.countdowntimer.START"
         const val ACTION_STOP_ALARM = "com.example.countdowntimer.STOP_ALARM"
         const val ACTION_STOP_ALL = "com.example.countdowntimer.STOP_ALL"
@@ -266,7 +269,8 @@ class TimerService : Service() {
                 prepare()
                 start()
             }
-        } catch (_: Exception) { /* без звука — не критично */
+        } catch (e: Exception) { /* без звука — не критично */
+            Log.e(TAG, "playAlarm: ", e)
         }
     }
 
@@ -292,7 +296,7 @@ class TimerService : Service() {
             }
         } catch (_: Exception) {
             // Если пользовательский файл недоступен — падаем на системный
-            //playAlarm()
+            playAlarm()
         }
     }
 
